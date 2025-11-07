@@ -1,0 +1,264 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches: [main, develop, master]
+  pull_request:
+    branches: [main, develop, master]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual trigger from GitHub UI
+
+env:
+  NODE_VERSION: '18.x'
+
+jobs:
+  # ==========================================
+  # LINT AND TYPE CHECK
+  # ==========================================
+  lint:
+    name: Lint and Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+  # ==========================================
+  # SMOKE TESTS (Quick validation)
+  # ==========================================
+  smoke-tests:
+    name: Smoke Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run smoke tests
+        run: npm run test:smoke
+        env:
+          BASE_URL: ${{ secrets.BASE_URL || 'http://localhost:3000' }}
+          TEST_USERNAME: ${{ secrets.TEST_USERNAME || 'testuser' }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD || 'testpass123' }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # ==========================================
+  # E2E TESTS (Cross-browser)
+  # ==========================================
+  e2e-tests:
+    name: E2E Tests - ${{ matrix.browser }}
+    needs: smoke-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run E2E tests
+        run: npx playwright test --project=${{ matrix.browser }}
+        env:
+          BASE_URL: ${{ secrets.BASE_URL || 'http://localhost:3000' }}
+          TEST_USERNAME: ${{ secrets.TEST_USERNAME || 'testuser' }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD || 'testpass123' }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME || 'admin' }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD || 'admin123' }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # ==========================================
+  # VISUAL REGRESSION TESTS
+  # ==========================================
+  visual-tests:
+    name: Visual Regression Tests
+    needs: smoke-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run visual regression tests
+        run: npm run test:visual
+        env:
+          BASE_URL: ${{ secrets.BASE_URL || 'http://localhost:3000' }}
+          TEST_USERNAME: ${{ secrets.TEST_USERNAME || 'testuser' }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD || 'testpass123' }}
+
+      - name: Upload visual test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-test-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 30
+
+  # ==========================================
+  # GENERATE ALLURE REPORT
+  # ==========================================
+  allure-report:
+    name: Generate Allure Report
+    needs: [smoke-tests, e2e-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: all-test-results
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Copy allure results
+        run: |
+          mkdir -p reports/allure-results
+          find all-test-results -name "allure-results" -type d -exec cp -r {}/* reports/allure-results/ \;
+
+      - name: Generate Allure report
+        run: npm run report:allure-generate
+        continue-on-error: true
+
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+          retention-days: 30
+
+      - name: Deploy Allure report to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./allure-report
+          destination_dir: reports/${{ github.run_number }}
+
+  # ==========================================
+  # TEST SUMMARY
+  # ==========================================
+  test-summary:
+    name: Test Summary
+    needs: [smoke-tests, e2e-tests, visual-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create test summary
+        run: |
+          echo "## 🧪 Test Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Smoke Tests | ${{ needs.smoke-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Visual Tests | ${{ needs.visual-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Number:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+
+  # ==========================================
+  # SLACK NOTIFICATION (Optional)
+  # ==========================================
+  notify:
+    name: Send Notification
+    needs: [smoke-tests, e2e-tests, visual-tests]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Test Results:
+            Smoke: ${{ needs.smoke-tests.result }}
+            E2E: ${{ needs.e2e-tests.result }}
+            Visual: ${{ needs.visual-tests.result }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

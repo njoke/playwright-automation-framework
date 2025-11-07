@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "moduleResolution": "node",
+    "rootDir": ".",
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@pages/*": ["src/pages/*"],
+      "@components/*": ["src/components/*"],
+      "@fixtures/*": ["src/fixtures/*"],
+      "@utils/*": ["src/utils/*"],
+      "@test-data/*": ["test-data/*"],
+      "@config/*": ["config/*"]
+    },
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "types": ["node", "@playwright/test"],
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "config/**/*",
+    "test-data/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "reports",
+    "playwright-report",
+    "test-results"
+  ]
+}

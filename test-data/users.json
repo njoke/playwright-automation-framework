@@ -1,0 +1,35 @@
+{
+  "validUsers": [
+    {
+      "username": "testuser@qa.com",
+      "password": "Test@123",
+      "role": "user",
+      "firstName": "Test",
+      "lastName": "User"
+    },
+    {
+      "username": "admin@qa.com",
+      "password": "Admin@123",
+      "role": "admin",
+      "firstName": "Admin",
+      "lastName": "User"
+    }
+  ],
+  "invalidUsers": [
+    {
+      "username": "invalid@qa.com",
+      "password": "WrongPass123",
+      "expectedError": "Invalid credentials"
+    },
+    {
+      "username": "",
+      "password": "Test@123",
+      "expectedError": "Username is required"
+    },
+    {
+      "username": "testuser@qa.com",
+      "password": "",
+      "expectedError": "Password is required"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "name": "qa-automation-framework",
+  "version": "1.0.0",
+  "description": "Playwright automation framework for QA Portal testing",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:visual": "playwright test --grep @visual",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:chrome": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:parallel": "playwright test --workers=3",
+    "report": "playwright show-report",
+    "report:allure": "allure generate reports/allure-results --clean -o reports/allure-report && allure open reports/allure-report",
+    "report:allure:generate": "allure generate reports/allure-results --clean -o reports/allure-report",
+    "report:allure:open": "allure open reports/allure-report",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,json,md}\"",
+    "clean": "rm -rf reports/allure-results reports/allure-report reports/screenshots reports/videos playwright-report test-results",
+    "pretest": "npm run clean"
+  },
+  "keywords": [
+    "playwright",
+    "automation",
+    "testing",
+    "e2e",
+    "typescript"
+  ],
+  "author": "QA Team",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.3",
+    "@typescript-eslint/parser": "^8.46.3",
+    "allure-commandline": "^2.34.1",
+    "allure-playwright": "^3.4.2",
+    "dotenv": "^17.2.3",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-playwright": "^2.3.0",
+    "faker": "^5.5.3",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^10.1.0"
+  }
+}
