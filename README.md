@@ -287,5 +287,5 @@ Manual trigger:
 
 ---
 
-**Maintained by:** QA Automation Team  
+**Maintained by:** Ken  
 **Last Updated:** November 2025
